@@ -62,30 +62,30 @@ model.fit(X, y)
 y_pred = model.predict(X)
 
 st.subheader("Parámetros del modelo")
-st.write(f"**Intercepto (β₀):** {model.intercept_:.4f}")
-st.write(f"**Pendiente (β₁) para `{x_col}`:** {model.coef_[0]:.4f}")
+st.write(f"**Ecuación:**  y = {model.intercept_:.4f} + {model.coef_[0]:.4f} · x")
+st.caption(f"x = `{x_col}` · y = `{y_col}`")
 
 st.subheader("Métricas (sobre los datos usados para entrenar)")
 r2 = r2_score(y, y_pred)
 mae = mean_absolute_error(y, y_pred)
 mse = mean_squared_error(y, y_pred)
 rmse = np.sqrt(mse)
-met_cols = st.columns(4)
-met_cols[0].metric("R²", f"{r2:.4f}")
-met_cols[1].metric("MAE", f"{mae:.4f}")
-met_cols[2].metric("MSE", f"{mse:.4f}")
-met_cols[3].metric("RMSE", f"{rmse:.4f}")
+m1, m2, m3, m4 = st.columns(4)
+m1.metric("R²", f"{r2:.4f}")
+m2.metric("MAE", f"{mae:.4f}")
+m3.metric("MSE", f"{mse:.4f}")
+m4.metric("RMSE", f"{rmse:.4f}")
 
-# ============== Gráfico ==============
+# ============== Gráfico (se refresca correctamente) ==============
 st.subheader("Dispersión y recta de regresión")
-fig = plt.figure()
-plt.scatter(X, y, alpha=0.7)
+fig, ax = plt.subplots()
+ax.scatter(X, y, alpha=0.7)
 x_sorted = np.sort(X.reshape(-1))
-plt.plot(x_sorted, model.predict(x_sorted.reshape(-1, 1)), linewidth=2)
-plt.xlabel(x_col)
-plt.ylabel(y_col)
-plt.title("Ajuste de regresión lineal")
-st.pyplot(fig)
+ax.plot(x_sorted, model.predict(x_sorted.reshape(-1, 1)), linewidth=2)
+ax.set_xlabel(x_col)
+ax.set_ylabel(y_col)
+ax.set_title("Ajuste de regresión lineal")
+st.pyplot(fig, clear_figure=True)  # <- clave para que no se quede pegada
 
 # ============== Predicción puntual ==============
 st.subheader("Predicción con un valor nuevo de X")
@@ -109,8 +109,9 @@ if new_file is not None:
         st.dataframe(out.head())
         buffer = io.StringIO()
         out.to_csv(buffer, index=False)
-        st.download_button("⬇️ Descargar predicciones CSV", data=buffer.getvalue(),
-                           file_name="predicciones.csv", mime="text/csv")
-
-st.divider()
-st.caption("Hecho con ❤️ en Streamlit.")
+        st.download_button(
+            "⬇️ Descargar predicciones CSV",
+            data=buffer.getvalue(),
+            file_name="predicciones.csv",
+            mime="text/csv",
+        )

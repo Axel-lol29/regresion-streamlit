@@ -1,33 +1,30 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import io
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="Regresión lineal simple", page_icon="📈", layout="centered")
 
-st.title("📈 Regresión lineal simple (Streamlit)")
+st.title("📈 Regresión lineal simple")
 st.write(
-    "Carga un **CSV** con columnas numéricas, elige la variable independiente (X) y la dependiente (y), "
-    "entrena el modelo y genera predicciones con datos nuevos."
+    "Sube un **CSV** con columnas numéricas (X e y). Elige las columnas, entrena el modelo, "
+    "mira la recta de regresión y haz una predicción rápida."
 )
 
-# ============== Cargar datos ==============
-uploaded = st.file_uploader("Sube tu archivo CSV con los datos de entrenamiento", type=["csv"])
+# ---------- Carga de datos ----------
+file = st.file_uploader("Sube tu CSV", type=["csv"])
 
 @st.cache_data
 def load_sample():
-    # Datos de ejemplo: Horas de estudio vs Calificación
     rng = np.random.default_rng(42)
     x = np.linspace(1, 10, 40)
-    y = 10 + 8*x + rng.normal(0, 6, size=len(x))
-    df = pd.DataFrame({"horas_estudio": x, "calificacion": y})
-    return df
+    y = 10 + 8 * x + rng.normal(0, 6, size=len(x))
+    return pd.DataFrame({"horas_estudio": x, "calificacion": y})
 
-if uploaded is not None:
-    df = pd.read_csv(uploaded)
+if file:
+    df = pd.read_csv(file)
     st.success("Datos cargados correctamente.")
 else:
     st.info("No subiste archivo. Usando **datos de ejemplo** (horas_estudio → calificacion).")
@@ -36,47 +33,36 @@ else:
 st.subheader("Vista previa de los datos")
 st.dataframe(df.head())
 
-# Filtrar columnas numéricas
-numeric_cols = df.select_dtypes(include=["number"]).columns.tolist()
-if len(numeric_cols) < 2:
-    st.error("Se requieren **al menos dos columnas numéricas** para hacer regresión (X e y).")
+# ---------- Selección de columnas numéricas ----------
+num_cols = df.select_dtypes(include="number").columns.tolist()
+if len(num_cols) < 2:
+    st.error("Se requieren **al menos dos columnas numéricas** (X e y).")
     st.stop()
 
-col1, col2 = st.columns(2)
-with col1:
-    x_col = st.selectbox("Variable independiente (X)", numeric_cols, index=0)
-with col2:
-    y_col = st.selectbox("Variable dependiente (y)", [c for c in numeric_cols if c != x_col], index=0)
+c1, c2 = st.columns(2)
+with c1:
+    x_col = st.selectbox("Variable independiente (X)", num_cols, index=0)
+with c2:
+    y_col = st.selectbox("Variable dependiente (y)", [c for c in num_cols if c != x_col], index=0)
 
-# ============== Entrenar modelo ==============
-X = df[[x_col]].dropna().values
-y = df[y_col].dropna().values
-if len(X) != len(y):
-    st.warning("Hay valores faltantes desalineados entre X e y. Se eliminarán filas con NA.")
-    cleaned = df[[x_col, y_col]].dropna()
-    X = cleaned[[x_col]].values
-    y = cleaned[y_col].values
+# ---------- Entrenamiento ----------
+data = df[[x_col, y_col]].dropna()  # quita NAs alineados
+X = data[[x_col]].values
+y = data[y_col].values
 
-model = LinearRegression()
-model.fit(X, y)
-y_pred = model.predict(X)
+model = LinearRegression().fit(X, y)
+y_hat = model.predict(X)
 
-st.subheader("Parámetros del modelo")
+# ---------- Métricas y ecuación ----------
+st.subheader("Modelo y métricas")
 st.write(f"**Ecuación:**  y = {model.intercept_:.4f} + {model.coef_[0]:.4f} · x")
-st.caption(f"x = `{x_col}` · y = `{y_col}`")
-
-st.subheader("Métricas (sobre los datos usados para entrenar)")
-r2 = r2_score(y, y_pred)
-mae = mean_absolute_error(y, y_pred)
-mse = mean_squared_error(y, y_pred)
-rmse = np.sqrt(mse)
 m1, m2, m3, m4 = st.columns(4)
-m1.metric("R²", f"{r2:.4f}")
-m2.metric("MAE", f"{mae:.4f}")
-m3.metric("MSE", f"{mse:.4f}")
-m4.metric("RMSE", f"{rmse:.4f}")
+m1.metric("R²", f"{r2_score(y, y_hat):.4f}")
+m2.metric("MAE", f"{mean_absolute_error(y, y_hat):.4f}")
+m3.metric("MSE", f"{mean_squared_error(y, y_hat):.4f}")
+m4.metric("RMSE", f"{np.sqrt(mean_squared_error(y, y_hat)):.4f}")
 
-# ============== Gráfico (se refresca correctamente) ==============
+# ---------- Gráfica (se refresca) ----------
 st.subheader("Dispersión y recta de regresión")
 fig, ax = plt.subplots()
 ax.scatter(X, y, alpha=0.7)
@@ -84,34 +70,13 @@ x_sorted = np.sort(X.reshape(-1))
 ax.plot(x_sorted, model.predict(x_sorted.reshape(-1, 1)), linewidth=2)
 ax.set_xlabel(x_col)
 ax.set_ylabel(y_col)
-ax.set_title("Ajuste de regresión lineal")
-st.pyplot(fig, clear_figure=True)  # <- clave para que no se quede pegada
+ax.set_title("Ajuste de regresión")
+st.pyplot(fig, clear_figure=True)
 
-# ============== Predicción puntual ==============
-st.subheader("Predicción con un valor nuevo de X")
-new_x = st.number_input(f"Ingresar un valor para `{x_col}`", value=float(np.median(X)))
-pred_single = model.predict(np.array([[new_x]]))[0]
-st.write(f"**Predicción de `{y_col}`:** {pred_single:.4f}")
+# ---------- Predicción rápida (sin segundo CSV) ----------
+st.subheader("Predicción rápida")
+val = st.number_input(f"Nuevo valor para `{x_col}`", value=float(np.median(X)))
+pred = model.predict(np.array([[val]]))[0]
+st.write(f"**Predicción de `{y_col}`:** {pred:.4f}")
 
-# ============== Predicciones por archivo ==============
-st.subheader("Subir archivo con nuevos datos de X para predecir y descargar resultados")
-st.caption(f"El archivo debe tener una columna llamada **{x_col}** (CSV).")
-new_file = st.file_uploader("Sube CSV con nuevos valores de X", type=["csv"], key="newcsv")
-
-if new_file is not None:
-    new_df = pd.read_csv(new_file)
-    if x_col not in new_df.columns:
-        st.error(f"El archivo debe contener la columna `{x_col}`.")
-    else:
-        out = new_df.copy()
-        out[f"pred_{y_col}"] = model.predict(out[[x_col]].values)
-        st.write("Vista previa de predicciones:")
-        st.dataframe(out.head())
-        buffer = io.StringIO()
-        out.to_csv(buffer, index=False)
-        st.download_button(
-            "⬇️ Descargar predicciones CSV",
-            data=buffer.getvalue(),
-            file_name="predicciones.csv",
-            mime="text/csv",
-        )
+st.caption("Tip: si luego necesitas 'aceptar nuevos datos' en lote, agrego un uploader opcional para un CSV solo con la columna X.")

@@ -8,7 +8,7 @@ import altair as alt
 # -------------------- Configuración básica --------------------
 st.set_page_config(page_title="Regresión lineal simple", page_icon="📈", layout="centered")
 
-st.title("📈 Regresión lineal simple (By Axel Mireles #739047)")
+st.title("📈 Regresión lineal simple (Axel Mireles #739047)")
 st.caption("Sube un CSV con dos columnas numéricas (X e y), entrena el modelo, visualiza la recta e intenta una predicción rápida.")
 
 # -------------------- Carga de datos --------------------
